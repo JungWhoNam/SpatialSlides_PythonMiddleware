@@ -1,7 +1,7 @@
 import sys
 import time
 from .zmq_handler import ZMQHandler
-from ppt.ppt_controller import PowerPointController
+from ppt_tools.powerpoint_controller import PowerPointController
 from .slide_tracker import SlideTracker
 from .client_message_handler import handle_message
 
@@ -24,7 +24,7 @@ class PowerPointServer:
 
     def start(self):
         """Starts tracking PowerPoint slides and processing client messages."""
-        if not self.ppt_controller.connect_to_powerpoint():
+        if not self.ppt_controller.connect():
             print("❌ Could not connect to PowerPoint. Exiting.")
             return
 
@@ -40,12 +40,11 @@ class PowerPointServer:
                 # Check for slide changes
                 change = self.slide_tracker.check_slide_change()
                 if change:
-                    slide_index, notes = change
-                    self.zmq_handler.send_message("SlideChanged", {"slide": slide_index, "notes": notes})
+                    slide_index, images = change
+                    for image_bytes, metadata in images:
+                        self.zmq_handler.send_message("SlideChanged", {"slide": slide_index, "notes": metadata})
 
-                # Ensure at least some small sleep to prevent high CPU usage
-                elapsed_time = time.time() - start_time
-                time.sleep(max(0, self.interval - elapsed_time))
+                time.sleep(max(0, self.interval - (time.time() - start_time)))
 
         except KeyboardInterrupt:
             self.shutdown()
