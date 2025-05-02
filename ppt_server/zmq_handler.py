@@ -1,7 +1,6 @@
 import zmq
 import queue
 import threading
-import json
 
 
 class ZMQHandler:
@@ -42,6 +41,14 @@ class ZMQHandler:
                 print(f"📤 Published: {message}")
             except zmq.ZMQError as e:
                 print(f"⚠️ Error sending message: {e}")
+
+    def send_multipart(self, message_parts: list[bytes]) -> None:
+        """Sends raw multipart ZMQ message."""
+        try:
+            self.publisher.send_multipart(message_parts)
+            print(f"📤 Sent multipart message with {len(message_parts)} part(s).")
+        except zmq.ZMQError as e:
+            print(f"⚠️ Failed to send multipart message: {e}")
 
     def listen_for_requests(self):
         """Listens for incoming multipart messages and adds them to the processing queue."""

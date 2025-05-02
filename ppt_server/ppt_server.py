@@ -1,5 +1,7 @@
 import sys
 import time
+import json
+from typing import Optional
 from .zmq_handler import ZMQHandler
 from ppt_tools.powerpoint_controller import PowerPointController
 from .slide_tracker import SlideTracker
@@ -38,16 +40,28 @@ class PowerPointServer:
                 self.zmq_handler.process_queue(handle_message, self.ppt_controller)
 
                 # Check for slide changes
-                change = self.slide_tracker.check_slide_change()
-                if change:
-                    slide_index, images = change
-                    for image_bytes, metadata in images:
-                        self.zmq_handler.send_message("SlideChanged", {"slide": slide_index, "notes": metadata})
+                slide_index = self.slide_tracker.check_slide_change()
+                if slide_index:
+                    images = self.ppt_controller.extract_metadata_images(slide_index)
+                    parts = self.build_slide_changed_message(slide_index, images)
+                    self.zmq_handler.send_multipart(parts)
 
                 time.sleep(max(0, self.interval - (time.time() - start_time)))
 
         except KeyboardInterrupt:
             self.shutdown()
+
+    def build_slide_changed_message(self, slide_index: int, images: list[tuple[bytes, Optional[str]]]) -> list[bytes]:
+        """Constructs a multipart message with slide index and associated images."""
+        parts = [
+            b"SlideChanged",
+            json.dumps({"slide": slide_index}).encode("utf-8")
+        ]
+        for image_bytes, alt_text in images:
+            meta = alt_text or "{}"
+            parts.append(meta.encode("utf-8"))
+            parts.append(image_bytes)
+        return parts
 
     def shutdown(self):
         """Shuts down the ppt_server."""
