@@ -6,6 +6,7 @@ from .zmq_handler import ZMQHandler
 from ppt_tools.powerpoint_controller import PowerPointController
 from .slide_tracker import SlideTracker
 from .client_message_handler import handle_message
+from .server_action import ServerAction
 
 
 class PowerPointServer:
@@ -37,13 +38,24 @@ class PowerPointServer:
                 start_time = time.time()
 
                 # Process incoming messages from Unity
-                self.zmq_handler.process_queue(handle_message, self.ppt_controller)
+                action = ServerAction.NO_ACTION
+
+                def wrapper(msg_parts):
+                    nonlocal action
+                    result = handle_message(msg_parts, self.ppt_controller)
+                    if result != ServerAction.NO_ACTION:
+                        action = result
+
+                self.zmq_handler.process_queue(wrapper)
 
                 # Check for slide changes
                 slide_index = self.slide_tracker.check_slide_change()
-                if slide_index:
-                    images = self.ppt_controller.extract_metadata_images(slide_index)
-                    parts = self.build_slide_changed_message(slide_index, images)
+                slide_changed = slide_index is not None
+
+                if slide_changed or action == ServerAction.SEND_CURRENT_VIEWS:
+                    target_index = slide_index or self.ppt_controller.get_current_slide_index()
+                    images = self.ppt_controller.extract_metadata_images(target_index)
+                    parts = self.build_slide_changed_message(target_index, images)
                     self.zmq_handler.send_multipart(parts)
 
                 time.sleep(max(0, self.interval - (time.time() - start_time)))
