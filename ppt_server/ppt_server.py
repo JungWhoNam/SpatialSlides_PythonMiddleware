@@ -38,13 +38,12 @@ class PowerPointServer:
                 start_time = time.time()
 
                 # Process incoming messages from Unity
-                action = ServerAction.NO_ACTION
+                requested_actions: set[ServerAction] = set()
 
                 def wrapper(msg_parts):
-                    nonlocal action
                     result = handle_message(msg_parts, self.ppt_controller)
-                    if result != ServerAction.NO_ACTION:
-                        action = result
+                    if result in (ServerAction.SEND_CURRENT_VIEWS, ServerAction.SEND_ALL_VIEWS):
+                        requested_actions.add(result)
 
                 self.zmq_handler.process_queue(wrapper)
 
@@ -52,13 +51,13 @@ class PowerPointServer:
                 slide_index = self.slide_tracker.check_slide_change()
                 slide_changed = slide_index is not None
 
-                if slide_changed or action == ServerAction.SEND_CURRENT_VIEWS:
+                if slide_changed or ServerAction.SEND_CURRENT_VIEWS in requested_actions:
                     target_index = slide_index or self.ppt_controller.get_current_slide_index()
                     images = self.ppt_controller.extract_metadata_images(target_index)
                     parts = self.build_view_message("CurrentViews", images, target_index)
                     self.zmq_handler.send_multipart(parts)
 
-                elif action == ServerAction.SEND_ALL_VIEWS:
+                if ServerAction.SEND_ALL_VIEWS in requested_actions:
                     images = self.ppt_controller.extract_all_metadata_images()
                     parts = self.build_view_message("AllViews", images)
                     self.zmq_handler.send_multipart(parts)
