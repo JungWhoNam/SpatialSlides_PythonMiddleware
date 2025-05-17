@@ -1,7 +1,7 @@
 import sys
 import time
 import json
-from typing import Optional
+from typing import Optional, List, Tuple
 from .zmq_handler import ZMQHandler
 from ppt_tools.powerpoint_controller import PowerPointController
 from .slide_tracker import SlideTracker
@@ -55,7 +55,12 @@ class PowerPointServer:
                 if slide_changed or action == ServerAction.SEND_CURRENT_VIEWS:
                     target_index = slide_index or self.ppt_controller.get_current_slide_index()
                     images = self.ppt_controller.extract_metadata_images(target_index)
-                    parts = self.build_slide_changed_message(target_index, images)
+                    parts = self.build_view_message("CurrentViews", images, target_index)
+                    self.zmq_handler.send_multipart(parts)
+
+                elif action == ServerAction.SEND_ALL_VIEWS:
+                    images = self.ppt_controller.extract_all_metadata_images()
+                    parts = self.build_view_message("AllViews", images)
                     self.zmq_handler.send_multipart(parts)
 
                 time.sleep(max(0, self.interval - (time.time() - start_time)))
@@ -63,16 +68,29 @@ class PowerPointServer:
         except KeyboardInterrupt:
             self.shutdown()
 
-    def build_slide_changed_message(self, slide_index: int, images: list[tuple[bytes, Optional[str]]]) -> list[bytes]:
-        """Constructs a multipart message with slide index and associated images."""
-        parts = [
-            b"SlideChanged",
-            json.dumps({"slide": slide_index}).encode("utf-8")
-        ]
+    def build_view_message(self, header: str, images: List[Tuple[bytes, Optional[str]]],
+                           slide_index: Optional[int] = None) -> List[bytes]:
+        """
+        Builds a multipart message containing image + metadata pairs, with optional slide index metadata.
+
+        Args:
+            header (str): The message type header (e.g., "SlideChanged", "AllViews")
+            images (List): List of (image_bytes, metadata_json) tuples.
+            slide_index (Optional[int]): If provided, will be included in the second part as JSON.
+
+        Returns:
+            List[bytes]: Multipart message parts
+        """
+        parts = [header.encode("utf-8")]
+
+        if slide_index is not None:
+            parts.append(json.dumps({"slide": slide_index}).encode("utf-8"))
+
         for image_bytes, alt_text in images:
             meta = alt_text or "{}"
             parts.append(meta.encode("utf-8"))
             parts.append(image_bytes)
+
         return parts
 
     def shutdown(self):

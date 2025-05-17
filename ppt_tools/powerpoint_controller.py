@@ -36,6 +36,16 @@ class PowerPointController:
             return []
         return extract_images_with_json_metadata(slide)
 
+    def extract_all_metadata_images(self) -> List[tuple[bytes, Optional[str]]]:
+        """Extracts all (image, metadata) pairs from all slides."""
+        result: List[tuple[bytes, Optional[str]]] = []
+
+        slides = self.app.ActivePresentation.Slides
+        for slide in slides:
+            result.extend(extract_images_with_json_metadata(slide))
+
+        return result
+
     def insert_metadata_image_offscreen(
             self,
             image_path: str,

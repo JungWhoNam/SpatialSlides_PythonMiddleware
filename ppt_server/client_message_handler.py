@@ -29,6 +29,9 @@ def handle_message(message_parts, ppt_controller) -> ServerAction:
     if command == "GetCurrentViews":
         return ServerAction.SEND_CURRENT_VIEWS
 
+    elif command == "GetAllViews":
+        return ServerAction.SEND_ALL_VIEWS
+
     elif command == "CreateView":
         if len(message_parts) < 3:
             print("⚠️ CreateView requires 2 parts: metadata and image.")
