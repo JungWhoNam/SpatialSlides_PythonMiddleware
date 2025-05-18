@@ -4,7 +4,8 @@ from ppt_tools.utils_image import insert_image, extract_images_with_json_metadat
 from ppt_tools.utils_slide import (
     get_slide_by_index,
     get_presentation_dimensions,
-    get_current_slide_index as _get_current_slide_index
+    get_current_slide_index as _get_current_slide_index,
+    is_presenter_mode as _is_presenter_mode
 )
 
 
@@ -27,6 +28,14 @@ class PowerPointController:
     def get_current_slide_index(self) -> Optional[int]:
         """Returns the current slide index."""
         return _get_current_slide_index(self.app)
+
+    def is_presenter_mode(self) -> Optional[bool]:
+        """
+        Returns True if PowerPoint is in presenter mode,
+        False if in edit mode,
+        or None if the state could not be determined.
+        """
+        return _is_presenter_mode(self.app)
 
     def extract_metadata_images(self, slide_index: Optional[int] = None) -> List[tuple[bytes, Optional[str]]]:
         """Extracts images and metadata from the given or current slide."""

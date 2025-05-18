@@ -1,7 +1,7 @@
 import sys
 import time
 import json
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Literal
 from .zmq_handler import ZMQHandler
 from ppt_tools.powerpoint_controller import PowerPointController
 from .slide_tracker import SlideTracker
@@ -42,7 +42,9 @@ class PowerPointServer:
 
                 def wrapper(msg_parts):
                     result = handle_message(msg_parts, self.ppt_controller)
-                    if result in (ServerAction.SEND_CURRENT_VIEWS, ServerAction.SEND_ALL_VIEWS):
+                    if result in (
+                            ServerAction.SEND_CURRENT_VIEWS, ServerAction.SEND_ALL_VIEWS,
+                            ServerAction.SEND_CURRENT_MODE):
                         requested_actions.add(result)
 
                 self.zmq_handler.process_queue(wrapper)
@@ -60,6 +62,17 @@ class PowerPointServer:
                 if ServerAction.SEND_ALL_VIEWS in requested_actions:
                     images = self.ppt_controller.extract_all_metadata_images()
                     parts = self.build_view_message("AllViews", images)
+                    self.zmq_handler.send_multipart(parts)
+
+                # Check for mode changes (edit <-> present) or explicit request
+                mode = self.slide_tracker.check_mode_change()
+                mode_changed = mode is not None
+
+                if mode_changed or ServerAction.SEND_CURRENT_MODE in requested_actions:
+                    target_mode = mode if mode is not None else (
+                        "present" if self.ppt_controller.is_presenter_mode() else "edit"
+                    )
+                    parts = self.build_current_mode_message(target_mode)
                     self.zmq_handler.send_multipart(parts)
 
                 time.sleep(max(0, self.interval - (time.time() - start_time)))
@@ -91,6 +104,15 @@ class PowerPointServer:
             parts.append(image_bytes)
 
         return parts
+
+    def build_current_mode_message(self, mode: Literal["edit", "present"]) -> List[bytes]:
+        """
+        Builds a multipart message for mode change notification.
+        """
+        return [
+            b"CurrentMode",
+            json.dumps({"mode": mode}).encode("utf-8")
+        ]
 
     def shutdown(self):
         """Shuts down the ppt_server."""

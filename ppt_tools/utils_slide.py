@@ -9,9 +9,20 @@ def get_active_presentation(app: win32com.client.CDispatch) -> Optional[win32com
         return None
 
 
+def is_presenter_mode(app: win32com.client.CDispatch) -> Optional[bool]:
+    try:
+        return app.SlideShowWindows.Count > 0
+    except Exception as e:
+        print(f"⚠️ Error checking presenter mode: {e}")
+        return None
+
+
 def get_current_slide_index(app: win32com.client.CDispatch) -> Optional[int]:
     try:
-        return app.ActiveWindow.View.Slide.SlideIndex
+        if is_presenter_mode(app):
+            return app.SlideShowWindows(1).View.Slide.SlideIndex
+        else:
+            return app.ActiveWindow.View.Slide.SlideIndex
     except Exception:
         return None
 
