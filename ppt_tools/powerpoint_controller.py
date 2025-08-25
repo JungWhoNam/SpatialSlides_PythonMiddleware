@@ -5,6 +5,7 @@ from ppt_tools.utils_slide import (
     get_slide_by_index,
     get_presentation_dimensions,
     get_current_slide_index as _get_current_slide_index,
+    get_current_click_index as _get_current_click_index,
     is_presenter_mode as _is_presenter_mode
 )
 
@@ -28,6 +29,10 @@ class PowerPointController:
     def get_current_slide_index(self) -> Optional[int]:
         """Returns the current slide index."""
         return _get_current_slide_index(self.app)
+
+    def get_current_click_index(self) -> Optional[int]:
+        """Returns the current click index."""
+        return _get_current_click_index(self.app)
 
     def is_presenter_mode(self) -> Optional[bool]:
         """

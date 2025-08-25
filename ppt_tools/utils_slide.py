@@ -27,6 +27,21 @@ def get_current_slide_index(app: win32com.client.CDispatch) -> Optional[int]:
         return None
 
 
+def get_current_click_index(app: win32com.client.CDispatch) -> Optional[int]:
+    """
+    Gets the current animation step (click index) on the active slide.
+    Returns the click index (an integer, starting at 0) if in presenter mode.
+    Returns None if in edit mode or if an error occurs.
+    """
+    try:
+        if is_presenter_mode(app):
+            return app.SlideShowWindows(1).View.GetClickIndex()
+        else:
+            return None
+    except Exception:
+        return None
+
+
 def get_slide_by_index(app: win32com.client.CDispatch, index: Optional[int] = None) -> Optional[
     win32com.client.CDispatch]:
     pres = get_active_presentation(app)

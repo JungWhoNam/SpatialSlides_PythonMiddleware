@@ -49,12 +49,26 @@ class PowerPointServer:
 
                 self.zmq_handler.process_queue(wrapper)
 
-                # Check for slide changes
+                # 1. Prioritize checking for a slide change.
                 slide_index = self.slide_tracker.check_slide_change()
-                slide_changed = slide_index is not None
+                if slide_index is not None:
+                    # A slide change occurred, send a single update for the new slide.
+                    images = self.ppt_controller.extract_metadata_images(slide_index)
+                    parts = self.build_view_message("CurrentViews", images, slide_index)
+                    self.zmq_handler.send_multipart(parts)
 
-                if slide_changed or ServerAction.SEND_CURRENT_VIEWS in requested_actions:
-                    target_index = slide_index or self.ppt_controller.get_current_slide_index()
+                # 2. Only if the slide has NOT changed, check for an animation change.
+                else:
+                    animation_state = self.slide_tracker.check_animation_change()
+                    if animation_state:
+                        slide_index, animation_step = animation_state
+                        # No images are sent.
+                        parts = self.build_animation_step_message(slide_index, animation_step)
+                        self.zmq_handler.send_multipart(parts)
+
+                # Handle explicit requests from the client
+                if ServerAction.SEND_CURRENT_VIEWS in requested_actions:
+                    target_index = self.ppt_controller.get_current_slide_index()
                     images = self.ppt_controller.extract_metadata_images(target_index)
                     parts = self.build_view_message("CurrentViews", images, target_index)
                     self.zmq_handler.send_multipart(parts)
@@ -66,12 +80,8 @@ class PowerPointServer:
 
                 # Check for mode changes (edit <-> present) or explicit request
                 mode = self.slide_tracker.check_mode_change()
-                mode_changed = mode is not None
-
-                if mode_changed or ServerAction.SEND_CURRENT_MODE in requested_actions:
-                    target_mode = mode if mode is not None else (
-                        "present" if self.ppt_controller.is_presenter_mode() else "edit"
-                    )
+                if mode or ServerAction.SEND_CURRENT_MODE in requested_actions:
+                    target_mode = mode or ("present" if self.ppt_controller.is_presenter_mode() else "edit")
                     parts = self.build_current_mode_message(target_mode)
                     self.zmq_handler.send_multipart(parts)
 
@@ -113,6 +123,19 @@ class PowerPointServer:
             b"CurrentMode",
             json.dumps({"mode": mode}).encode("utf-8")
         ]
+
+    def build_animation_step_message(self, slide_index: int, animation_step: int) -> List[bytes]:
+        """
+        Builds a lightweight message to notify the client of an animation step change.
+        """
+        parts = [
+            b"AnimationStep",
+            json.dumps({
+                "slide": slide_index,
+                "animation_step": animation_step
+            }).encode("utf-8")
+        ]
+        return parts
 
     def shutdown(self):
         """Shuts down the ppt_server."""
