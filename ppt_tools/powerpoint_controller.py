@@ -1,6 +1,6 @@
 import win32com.client
 from typing import Optional, List
-from ppt_tools.utils_image import insert_image, extract_images_with_json_metadata
+from ppt_tools.utils_image import insert_image, extract_images_with_json_metadata, extract_json_metadata_only
 from ppt_tools.utils_slide import (
     get_slide_by_index,
     get_presentation_dimensions,
@@ -49,6 +49,14 @@ class PowerPointController:
             print("⚠️ Could not access slide.")
             return []
         return extract_images_with_json_metadata(slide)
+
+    def extract_metadata_only(self, slide_index: Optional[int] = None) -> List[str]:
+        """Extracts only the JSON metadata strings from the given or current slide."""
+        slide = get_slide_by_index(self.app, slide_index)
+        if not slide:
+            print("⚠️ Could not access slide.")
+            return []
+        return extract_json_metadata_only(slide)
 
     def extract_all_metadata_images(self) -> List[tuple[bytes, Optional[str]]]:
         """Extracts all (image, metadata) pairs from all slides."""

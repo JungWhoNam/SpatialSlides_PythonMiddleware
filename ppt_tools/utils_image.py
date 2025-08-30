@@ -67,6 +67,31 @@ def extract_images_with_json_metadata(slide: win32com.client.CDispatch) -> List[
     return result
 
 
+def extract_json_metadata_only(slide: win32com.client.CDispatch) -> List[str]:
+    """
+    Extracts only the JSON metadata (from Alt Text) for valid images,
+    sorted by their vertical position on the slide.
+    """
+    metadata_with_positions = []
+    for shape in slide.Shapes:
+        if shape.Type == 13:
+            alt_text = shape.AlternativeText.strip() if shape.AlternativeText else None
+            try:
+                if not alt_text:
+                    continue
+                json.loads(alt_text)
+                metadata_with_positions.append({
+                    "top": shape.Top,
+                    "alt": alt_text
+                })
+            except (json.JSONDecodeError, Exception):
+                continue
+
+    sorted_metadata = sorted(metadata_with_positions, key=lambda meta: meta['top'])
+
+    return [meta['alt'] for meta in sorted_metadata]
+
+
 def create_slide_with_centered_image(
         app: win32com.client.CDispatch,
         image_path: str,

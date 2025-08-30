@@ -53,8 +53,8 @@ class PowerPointServer:
                 slide_index = self.slide_tracker.check_slide_change()
                 if slide_index is not None:
                     # A slide change occurred, send a single update for the new slide.
-                    images = self.ppt_controller.extract_metadata_images(slide_index)
-                    parts = self.build_view_message("CurrentViews", images, slide_index)
+                    metadata_list = self.ppt_controller.extract_metadata_only(slide_index)
+                    parts = self.build_metadata_only_message("CurrentViewRefs", metadata_list, slide_index)
                     self.zmq_handler.send_multipart(parts)
 
                 # 2. Only if the slide has NOT changed, check for an animation change.
@@ -112,6 +112,16 @@ class PowerPointServer:
             meta = alt_text or "{}"
             parts.append(meta.encode("utf-8"))
             parts.append(image_bytes)
+
+        return parts
+
+    def build_metadata_only_message(self, header: str, metadata_list: List[str], slide_index: int) -> List[bytes]:
+        """Builds a multipart message containing only metadata references."""
+        parts = [header.encode("utf-8")]
+        parts.append(json.dumps({"slide": slide_index}).encode("utf-8"))
+
+        for meta_json in metadata_list:
+            parts.append(meta_json.encode("utf-8"))
 
         return parts
 
