@@ -69,8 +69,10 @@ class PowerPointServer:
                 # Handle explicit requests from the client
                 if ServerAction.SEND_CURRENT_VIEWS in requested_actions:
                     target_index = self.ppt_controller.get_current_slide_index()
-                    images = self.ppt_controller.extract_metadata_images(target_index)
-                    parts = self.build_view_message("CurrentViews", images, target_index)
+                    # images = self.ppt_controller.extract_metadata_images(target_index)
+                    # parts = self.build_view_message("CurrentViews", images, target_index)
+                    metadata_list = self.ppt_controller.extract_metadata_only(target_index)
+                    parts = self.build_metadata_only_message("CurrentViewRefs", metadata_list, target_index)
                     self.zmq_handler.send_multipart(parts)
 
                 if ServerAction.SEND_ALL_VIEWS in requested_actions:
