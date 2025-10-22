@@ -1,6 +1,7 @@
 import zmq
 import queue
 import threading
+import logging
 
 
 class ZMQHandler:
@@ -30,7 +31,7 @@ class ZMQHandler:
         self.request_thread = threading.Thread(target=self.listen_for_requests, daemon=True)
         self.request_thread.start()
 
-        print(f"✅ ZMQ Server running. PUB: {pub_address}, PULL: {pull_address}")
+        logging.info(f"ZMQ Server running. PUB: {pub_address}, PULL: {pull_address}")
 
     def send_message(self, event: str, data: any) -> None:
         """Sends a JSON message to all subscribers."""
@@ -38,21 +39,21 @@ class ZMQHandler:
             message = {"event": event, "data": data}
             try:
                 self.publisher.send_json(message)
-                print(f"📤 Published: {message}")
+                logging.debug(f"Published: {message}")
             except zmq.ZMQError as e:
-                print(f"⚠️ Error sending message: {e}")
+                logging.warning(f"Error sending message: {e}")
 
     def send_multipart(self, message_parts: list[bytes]) -> None:
         """Sends raw multipart ZMQ message."""
         try:
             self.publisher.send_multipart(message_parts)
-            print(f"📤 Sent multipart message with {len(message_parts)} part(s).")
+            logging.debug(f"Sent multipart message with {len(message_parts)} part(s).")
         except zmq.ZMQError as e:
-            print(f"⚠️ Failed to send multipart message: {e}")
+            logging.warning(f"Failed to send multipart message: {e}")
 
     def listen_for_requests(self):
         """Listens for incoming multipart messages and adds them to the processing queue."""
-        print("🎧 Listening for Unity messages...")
+        logging.info("Listening for Unity messages...")
 
         while self.running:
             try:
@@ -60,21 +61,21 @@ class ZMQHandler:
                 message_parts = self.pull_socket.recv_multipart()
 
                 if not message_parts:
-                    print("⚠️ Received empty message.")
+                    logging.warning("Received empty message.")
                     continue
 
                 # Add received data to the queue
                 self.message_queue.put(message_parts)
 
-                print(f"📩 Received multipart message: {len(message_parts)} parts")
+                logging.debug(f"Received multipart message: {len(message_parts)} parts")
 
             except zmq.ZMQError as e:
                 if self.running:
-                    print(f"⚠️ ZMQ Error receiving request: {e}")
+                    logging.warning(f"ZMQ Error receiving request: {e}")
 
             except Exception as e:
                 if self.running:
-                    print(f"⚠️ Unexpected error: {e}")
+                    logging.error(f"Unexpected error: {e}")
 
     def process_queue(self, handler, *args):
         """Processes queued messages using an external handler function."""
@@ -87,7 +88,7 @@ class ZMQHandler:
 
     def close(self):
         """Stops ZMQ communication and ensures all threads terminate properly."""
-        print("🛑 Closing ZMQHandler...")
+        logging.info("Closing ZMQHandler...")
         self.running = False
 
         # Close ZMQ sockets properly
@@ -102,4 +103,4 @@ class ZMQHandler:
         if self.request_thread.is_alive():
             self.request_thread.join(timeout=1)
 
-        print("✅ ZMQHandler shut down successfully.")
+        logging.info("ZMQHandler shut down successfully.")

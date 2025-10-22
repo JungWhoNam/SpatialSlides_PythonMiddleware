@@ -1,5 +1,6 @@
 import win32com.client
 from typing import Optional, List
+import logging
 from ppt_tools.utils_image import insert_image, extract_images_with_json_metadata, extract_json_metadata_only
 from ppt_tools.utils_slide import (
     get_slide_by_index,
@@ -19,11 +20,12 @@ class PowerPointController:
         try:
             self.app = win32com.client.GetActiveObject("PowerPoint.Application")
             if self.app.Presentations.Count == 0:
-                print("❌ No open PowerPoint presentations found.")
+                logging.error("No open PowerPoint presentations found.")
                 return False
             return True
         except Exception as e:
-            print(f"❌ Error connecting to PowerPoint: {e}")
+            logging.error(f"Error connecting to PowerPoint via COM: {e}")
+            self.app = None
             return False
 
     def get_current_slide_index(self) -> Optional[int]:
@@ -46,7 +48,7 @@ class PowerPointController:
         """Extracts images and metadata from the given or current slide."""
         slide = get_slide_by_index(self.app, slide_index)
         if not slide:
-            print("⚠️ Could not access slide.")
+            logging.warning("Could not access slide for image extraction.")
             return []
         return extract_images_with_json_metadata(slide)
 
@@ -54,7 +56,7 @@ class PowerPointController:
         """Extracts only the JSON metadata strings from the given or current slide."""
         slide = get_slide_by_index(self.app, slide_index)
         if not slide:
-            print("⚠️ Could not access slide.")
+            logging.warning("Could not access slide for metadata extraction.")
             return []
         return extract_json_metadata_only(slide)
 
@@ -80,7 +82,7 @@ class PowerPointController:
         """
         slide = get_slide_by_index(self.app)
         if not slide:
-            print("❌ Failed to retrieve current slide.")
+            logging.error("Failed to retrieve current slide for metadata insertion.")
             return
 
         # Define fixed height, and infer width using square assumption
@@ -106,4 +108,4 @@ class PowerPointController:
             metadata_json,
             apply_style
         )
-        print("🖼️ Metadata image added offscreen.")
+        logging.info("Metadata image added offscreen.")

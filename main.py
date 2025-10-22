@@ -1,7 +1,16 @@
 import argparse
 import signal
 import sys
+import logging
 from ppt_server.ppt_server import PowerPointServer
+
+
+# Configure logging globally
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 
 def main():
@@ -19,18 +28,18 @@ def main():
     # Parse CLI arguments
     args = parser.parse_args()
 
-    # Start the PowerPoint ppt_server with parsed settings
-    print(f"🚀 Starting PowerPoint Server with settings:\n"
-          f"   📡 PUB Address: {args.pub_address}\n"
-          f"   🔄 REP Address: {args.rep_address}\n"
-          f"   ⏳ Polling Interval: {args.interval}s")
+    # Log the starting settings
+    logging.info("Starting PowerPoint Server with settings:")
+    logging.info(f"   PUB Address: {args.pub_address}")
+    logging.info(f"   REP Address: {args.rep_address}")
+    logging.info(f"   Polling Interval: {args.interval}s")
 
     server = PowerPointServer(interval=args.interval)
 
     # Handle termination signals
     def shutdown_handler(signum, frame):
         """Ensures clean shutdown when stopping the ppt_server."""
-        print("\n🛑 Received termination signal. Shutting down...")
+        logging.info("Received termination signal. Shutting down...")
         server.shutdown()
         sys.exit(0)
 

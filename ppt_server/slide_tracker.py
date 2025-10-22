@@ -1,4 +1,5 @@
 from typing import Optional, Literal
+import logging
 from ppt_tools.powerpoint_controller import PowerPointController
 
 
@@ -16,7 +17,7 @@ class SlideTracker:
             return None
 
         self.last_slide_index = current_slide_index
-        print(f"\n🔄 Slide changed to: {current_slide_index}")
+        logging.info(f"Slide changed to: {current_slide_index}")
         return current_slide_index
 
     def check_mode_change(self) -> Optional[Literal["edit", "present"]]:
@@ -32,7 +33,7 @@ class SlideTracker:
         current_mode: Literal["edit", "present"] = "present" if is_presenting else "edit"
 
         if current_mode != self.last_mode:
-            print(f"🎬 Mode changed to: {current_mode}")
+            logging.info(f"Mode changed to: {current_mode}")
             self.last_mode = current_mode
             return current_mode
 
@@ -62,10 +63,11 @@ class SlideTracker:
             # Now, if we're on the same slide, check if only the animation step has changed.
             if current_animation_step != self.last_animation_step:
                 self.last_animation_step = current_animation_step
-                print(f"\n🔄 Animation changed to:  {current_animation_step}")
+                logging.info(f"Animation changed to: {current_animation_step} (Slide {current_slide_index})")
                 return current_slide_index, current_animation_step
 
-        except Exception:
+        except Exception as e:
+            logging.debug(f"Error checking animation change: {e}")
             return None
 
         return None
