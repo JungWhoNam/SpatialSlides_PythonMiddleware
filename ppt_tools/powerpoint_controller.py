@@ -1,14 +1,8 @@
 import win32com.client
 from typing import Optional, List
 import logging
-from ppt_tools.utils_image import insert_image, extract_images_with_json_metadata, extract_json_metadata_only
-from ppt_tools.utils_slide import (
-    get_slide_by_index,
-    get_presentation_dimensions,
-    get_current_slide_index as _get_current_slide_index,
-    get_current_click_index as _get_current_click_index,
-    is_presenter_mode as _is_presenter_mode
-)
+from ppt_tools import utils_image
+from ppt_tools import utils_slide
 
 
 class PowerPointController:
@@ -30,11 +24,11 @@ class PowerPointController:
 
     def get_current_slide_index(self) -> Optional[int]:
         """Returns the current slide index."""
-        return _get_current_slide_index(self.app)
+        return utils_slide.get_current_slide_index(self.app)
 
     def get_current_click_index(self) -> Optional[int]:
         """Returns the current click index."""
-        return _get_current_click_index(self.app)
+        return utils_slide.get_current_click_index(self.app)
 
     def is_presenter_mode(self) -> Optional[bool]:
         """
@@ -42,31 +36,35 @@ class PowerPointController:
         False if in edit mode,
         or None if the state could not be determined.
         """
-        return _is_presenter_mode(self.app)
+        return utils_slide.is_presenter_mode(self.app)
 
     def extract_metadata_images(self, slide_index: Optional[int] = None) -> List[tuple[bytes, Optional[str]]]:
         """Extracts images and metadata from the given or current slide."""
-        slide = get_slide_by_index(self.app, slide_index)
+        slide = utils_slide.get_slide_by_index(self.app, slide_index)
         if not slide:
             logging.warning("Could not access slide for image extraction.")
             return []
-        return extract_images_with_json_metadata(slide)
+        return utils_image.extract_images_with_json_metadata(slide)
 
     def extract_metadata_only(self, slide_index: Optional[int] = None) -> List[str]:
         """Extracts only the JSON metadata strings from the given or current slide."""
-        slide = get_slide_by_index(self.app, slide_index)
+        slide = utils_slide.get_slide_by_index(self.app, slide_index)
         if not slide:
             logging.warning("Could not access slide for metadata extraction.")
             return []
-        return extract_json_metadata_only(slide)
+        return utils_image.extract_json_metadata_only(slide)
 
     def extract_all_metadata_images(self) -> List[tuple[bytes, Optional[str]]]:
         """Extracts all (image, metadata) pairs from all slides."""
         result: List[tuple[bytes, Optional[str]]] = []
 
-        slides = self.app.ActivePresentation.Slides
-        for slide in slides:
-            result.extend(extract_images_with_json_metadata(slide))
+        pres = utils_slide.get_active_presentation(self.app)
+        if not pres:
+            logging.warning("Cannot extract all metadata: No active presentation.")
+            return []
+
+        for slide in pres.Slides:
+            result.extend(utils_image.extract_images_with_json_metadata(slide))
 
         return result
 
@@ -80,13 +78,13 @@ class PowerPointController:
         Inserts an image outside the visible slide area (e.g., for embedding metadata).
         Assumes the image is square for sizing purposes.
         """
-        slide = get_slide_by_index(self.app)
+        slide = utils_slide.get_slide_by_index(self.app)
         if not slide:
             logging.error("Failed to retrieve current slide for metadata insertion.")
             return
 
         # Define fixed height, and infer width using square assumption
-        width, height = get_presentation_dimensions(self.app)
+        width, height = utils_slide.get_presentation_dimensions(self.app)
         image_height = height * 0.1
         image_width = image_height * 1.0
 
@@ -98,7 +96,7 @@ class PowerPointController:
         )
         top = -margin + (existing_images * (image_height + margin))
 
-        insert_image(
+        utils_image.insert_image(
             slide,
             image_path,
             left,
