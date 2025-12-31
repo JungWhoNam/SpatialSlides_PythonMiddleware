@@ -1,8 +1,10 @@
 # SlideSpace Python Server
 
-SlideSpace is an Extended Reality (XR) authoring system that integrates the creation and presentation of immersive 3D content directly within standard slide-based presentation software.
+SpatialSlides is a system that integrates immersive authoring directly into slide-based presentation workflows.
 
 This Python server acts as the real-time bridge (or middleware) between the Microsoft PowerPoint COM API and the external Unity XR Client via ZeroMQ (ZMQ). Its core function is to monitor and transmit presentation state for immersive viewing and facilitate authoring while preserving the backward compatibility of the presentation file.
+
+For the Unity Client source code and full system documentation, visit the main repository: **[SpatialSlides](https://github.com/JungWhoNam/SpatialSlides)**
 
 -----
 
