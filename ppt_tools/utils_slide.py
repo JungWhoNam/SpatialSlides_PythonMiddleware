@@ -1,5 +1,6 @@
 import win32com.client
 from typing import Optional, Tuple, List
+import logging
 
 
 def get_active_presentation(app: win32com.client.CDispatch) -> Optional[win32com.client.CDispatch]:
@@ -13,7 +14,7 @@ def is_presenter_mode(app: win32com.client.CDispatch) -> Optional[bool]:
     try:
         return app.SlideShowWindows.Count > 0
     except Exception as e:
-        print(f"⚠️ Error checking presenter mode: {e}")
+        logging.warning(f"Error checking presenter mode: {e}")
         return None
 
 
@@ -44,6 +45,9 @@ def get_current_click_index(app: win32com.client.CDispatch) -> Optional[int]:
 
 def get_slide_by_index(app: win32com.client.CDispatch, index: Optional[int] = None) -> Optional[
     win32com.client.CDispatch]:
+    """
+    Retrieves a slide by index, logging informative errors on failure.
+    """
     pres = get_active_presentation(app)
     if not pres:
         return None
@@ -53,7 +57,8 @@ def get_slide_by_index(app: win32com.client.CDispatch, index: Optional[int] = No
         if index is None or index < 1 or index > pres.Slides.Count:
             return None
         return pres.Slides(index)
-    except Exception:
+    except Exception as e:
+        logging.error(f"Error accessing slide {index} via COM API: {e}")
         return None
 
 
@@ -65,27 +70,34 @@ def get_presentation_dimensions(app: win32com.client.CDispatch) -> Tuple[float, 
 
 
 def collect_image_alt_texts(app: win32com.client.CDispatch, slide_index: int) -> Optional[List[str]]:
+    """
+    Collects Alt Texts (metadata) from images on a slide, strictly validating they contain JSON.
+    Images missing Alt Text or having non-JSON Alt Text are ignored (skipped), not treated as errors.
+    """
     slide = get_slide_by_index(app, slide_index)
     if not slide:
-        print("⚠️ Could not access specified slide.")
+        logging.warning("Could not access specified slide.")
         return None
 
     alt_texts = []
     for shape in slide.Shapes:
-        if shape.Type == 13:
+        if shape.Type == 13:  # msoPicture (Image)
+            alt_text = getattr(shape, 'AlternativeText', '').strip()
+            if not alt_text:
+                continue
             try:
-                text = shape.AlternativeText.strip()
-                if text:
-                    alt_texts.append(text)
-            except Exception:
-                alt_texts.append("⚠️ Unable to retrieve Alt Text")
+                alt_texts.append(alt_text)
+            except Exception as e:
+                logging.warning(f"Unexpected error when checking Alt Text for shape: {e}")
+                continue
+
     return alt_texts or None
 
 
 def create_slide_with_textbox(app: win32com.client.CDispatch, text: str) -> None:
     pres = get_active_presentation(app)
     if not pres:
-        print("⚠️ PowerPoint is not connected.")
+        logging.warning("PowerPoint is not connected.")
         return
 
     try:
@@ -93,6 +105,6 @@ def create_slide_with_textbox(app: win32com.client.CDispatch, text: str) -> None
         new_slide = pres.Slides.Add(slide_count + 1, 12)
         text_box = new_slide.Shapes.AddTextbox(1, 100, 100, 500, 50)
         text_box.TextFrame.TextRange.Text = text
-        print(f"📄 Added empty slide at position {slide_count + 1} with text: {text}")
+        logging.info(f"Added empty slide at position {slide_count + 1} with text: {text}")
     except Exception as e:
-        print(f"❌ Error adding slide: {e}")
+        logging.error(f"Error adding slide: {e}")

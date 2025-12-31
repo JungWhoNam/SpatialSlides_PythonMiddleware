@@ -2,6 +2,7 @@ import sys
 import time
 import json
 from typing import Optional, List, Tuple, Literal
+import logging
 from .zmq_handler import ZMQHandler
 from ppt_tools.powerpoint_controller import PowerPointController
 from .slide_tracker import SlideTracker
@@ -28,10 +29,10 @@ class PowerPointServer:
     def start(self):
         """Starts tracking PowerPoint slides and processing client messages."""
         if not self.ppt_controller.connect():
-            print("❌ Could not connect to PowerPoint. Exiting.")
+            logging.error("Could not connect to PowerPoint. Exiting.")
             return
 
-        print("✅ PowerPoint Server is running. Processing incoming messages...")
+        logging.info("PowerPoint Server is running. Processing incoming messages...")
 
         try:
             while self.running:
@@ -153,5 +154,5 @@ class PowerPointServer:
         """Shuts down the ppt_server."""
         self.running = False
         self.zmq_handler.close()
-        print("✅ PowerPoint Server shut down successfully.")
+        logging.info("PowerPoint Server shut down successfully.")
         sys.exit(0)

@@ -1,5 +1,6 @@
 import tempfile
 import os
+import logging
 
 from .server_action import ServerAction
 
@@ -17,13 +18,13 @@ def handle_message(message_parts, ppt_controller) -> ServerAction:
     """
 
     if not message_parts or len(message_parts) == 0:
-        print("⚠️ Empty message received.")
+        logging.warning("Empty message received.")
         return ServerAction.NO_ACTION
 
     try:
         command = message_parts[0].decode("utf-8")
     except UnicodeDecodeError:
-        print("⚠️ Failed to decode message header.")
+        logging.warning("Failed to decode message header.")
         return ServerAction.NO_ACTION
 
     if command == "GetCurrentViews":
@@ -36,8 +37,9 @@ def handle_message(message_parts, ppt_controller) -> ServerAction:
         return ServerAction.SEND_CURRENT_MODE
 
     elif command == "CreateView":
+        temp_path = None
         if len(message_parts) < 3:
-            print("⚠️ CreateView requires 2 parts: metadata and image.")
+            logging.warning("CreateView requires 2 parts: metadata and image.")
             return ServerAction.NO_ACTION
 
         try:
@@ -52,14 +54,15 @@ def handle_message(message_parts, ppt_controller) -> ServerAction:
 
             return ServerAction.SEND_CURRENT_VIEWS
         except Exception as e:
-            print(f"❌ Error handling CreateView: {e}")
+            logging.error(f"Error handling CreateView: {e}")
         finally:
             try:
-                os.remove(temp_path)
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
             except Exception as e:
-                print(f"⚠️ Error deleting temp file: {e}")
+                logging.warning(f"Error deleting temp file: {e}")
 
     else:
-        print(f"⚠️ Unknown command: {command}")
+        logging.warning(f"Unknown command: {command}")
 
     return ServerAction.NO_ACTION

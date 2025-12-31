@@ -3,6 +3,7 @@ import os
 import json
 from typing import Optional, List, Tuple
 import win32com.client
+import logging
 
 from ppt_tools.utils_slide import get_presentation_dimensions, get_active_presentation
 
@@ -18,8 +19,11 @@ def insert_image(
         apply_style: bool = True
 ) -> Optional[win32com.client.CDispatch]:
     try:
+        # Ensure image_path is absolute for COM reliability
+        abs_image_path = os.path.abspath(image_path)
+
         image_shape = slide.Shapes.AddPicture(
-            FileName=image_path,
+            FileName=abs_image_path,
             LinkToFile=False,
             SaveWithDocument=True,
             Left=left,
@@ -37,7 +41,7 @@ def insert_image(
 
         return image_shape
     except Exception as e:
-        print(f"❌ Failed to insert image: {e}")
+        logging.error(f"Failed to insert image from path '{image_path}': {e}")
         return None
 
 
@@ -47,13 +51,21 @@ def extract_images_with_json_metadata(slide: win32com.client.CDispatch) -> List[
     for shape in slide.Shapes:
         if shape.Type == 13:
             alt_text = shape.AlternativeText.strip() if shape.AlternativeText else None
+
+            # 1. Validate Alt Text is non-empty and parsable JSON
             try:
                 if not alt_text:
                     continue
                 json.loads(alt_text)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                logging.warning(f"Skipping image with non-JSON Alt Text: {alt_text}. Error: {e}")
+                continue
+            except Exception as e:
+                logging.warning(f"Skipping shape due to unexpected error during AltText access: {e}")
                 continue
 
+            # 2. Export image to temp file, read bytes, and delete
+            tmp_path = None
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
                     tmp_path = tmp.name
@@ -63,7 +75,14 @@ def extract_images_with_json_metadata(slide: win32com.client.CDispatch) -> List[
                 os.remove(tmp_path)
                 result.append((image_bytes, alt_text))
             except Exception as e:
-                print(f"❌ Failed to extract image: {e}")
+                logging.error(f"Failed to export or read image data from slide: {e}")
+            finally:
+                if tmp_path and os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except Exception as e_del:
+                        logging.warning(f"Failed to delete temporary file {tmp_path}: {e_del}")
+
     return result
 
 
@@ -84,7 +103,11 @@ def extract_json_metadata_only(slide: win32com.client.CDispatch) -> List[str]:
                     "top": shape.Top,
                     "alt": alt_text
                 })
-            except (json.JSONDecodeError, Exception):
+            except json.JSONDecodeError as e:
+                logging.warning(f"Skipping shape due to invalid JSON metadata: {e}")
+                continue
+            except Exception as e:
+                logging.warning(f"Skipping shape due to COM error during metadata access: {e}")
                 continue
 
     sorted_metadata = sorted(metadata_with_positions, key=lambda meta: meta['top'])
@@ -100,7 +123,7 @@ def create_slide_with_centered_image(
 ) -> None:
     pres = get_active_presentation(app)
     if not pres:
-        print("⚠️ PowerPoint is not connected.")
+        logging.warning("PowerPoint is not connected.")
         return
 
     try:
@@ -114,6 +137,6 @@ def create_slide_with_centered_image(
         top = (height - image_height) / 2
 
         insert_image(new_slide, image_path, left, top, image_width, image_height, metadata_json, apply_style)
-        print(f"🖼️ Slide {slide_count + 1} created with a centered image and metadata.")
+        logging.info(f"Slide {slide_count + 1} created with a centered image and metadata.")
     except Exception as e:
-        print(f"❌ Error adding slide with image: {e}")
+        logging.error(f"Error adding slide with image: {e}")
