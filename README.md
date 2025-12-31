@@ -1,4 +1,4 @@
-# SlideSpace Python Server
+# SpatialSlides Python Middleware
 
 SpatialSlides is a system that integrates immersive authoring directly into slide-based presentation workflows.
 
