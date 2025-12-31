@@ -12,9 +12,9 @@ For the Unity Client source code and full system documentation, visit the main r
 
 ### Prerequisites
 
-  * **Operating System:** **Windows** (Required for Microsoft COM API).
-  * **Software:** Microsoft PowerPoint (must be running with a presentation open).
-  * **Python:** Python 3.x.
+* **Operating System:** **Windows** (Required for Microsoft COM API).
+* **Software:** Microsoft PowerPoint (must be running with a presentation open).
+* **Python:** Python 3.x.
 
 ### Installation
 
@@ -41,14 +41,14 @@ For the Unity Client source code and full system documentation, visit the main r
 
 ## Module Structure
 
-The server's code is logically separated into two modules: `ppt_tools` (for PowerPoint I/O) and `ppt_server` (for server logic and coordination).
+The codebase is logically separated into two modules: `ppt_tools` (for PowerPoint I/O) and `ppt_server` (for server logic and coordination).
 
-| Class | Module | Role & Responsibility                                                                                                                                     |
-| :--- | :--- |:----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **`PowerPointServer`** | `ppt_server` | The Orchestrator that runs the main polling loop, manages the lifecycle, and directs all communication. It aggregates the three primary components below. |
-| **`PowerPointController`** | `ppt_tools` | Encapsulates all low-level communication with the Windows COM API (the only component that holds the live PowerPoint application reference).              |
-| **`ZMQHandler`** | `ppt_server` | Manages the ZeroMQ sockets (PUB/SUB and PUSH/PULL) and the thread-safe message queue for network I/O.                                                     |
-| **`SlideTracker`** | `ppt_server` | Focuses purely on state comparison logic (detecting a change in slide index, mode, or animation click) by polling the `PowerPointController`.            |
+| Class                      | Module       | Role & Responsibility                                                                                                                                     |
+|:---------------------------|:-------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`PowerPointServer`**     | `ppt_server` | The Orchestrator that runs the main polling loop, manages the lifecycle, and directs all communication. It aggregates the three primary components below. |
+| **`PowerPointController`** | `ppt_tools`  | Encapsulates all low-level communication with the Windows COM API (the only component that holds the live PowerPoint application reference).              |
+| **`ZMQHandler`**           | `ppt_server` | Manages the ZeroMQ sockets (PUB/SUB and PUSH/PULL) and the thread-safe message queue for network I/O.                                                     |
+| **`SlideTracker`**         | `ppt_server` | Focuses purely on state comparison logic (detecting a change in slide index, mode, or animation click) by polling the `PowerPointController`.             |
 
 ### System Constraints (Windows Only)
 
@@ -62,25 +62,25 @@ The spatial keyframe (3D view) metadata is stored by serializing the view transf
 
 ## Communication Protocol
 
-The server communicates over two ZeroMQ sockets on `localhost`, using a continuous polling interval (default: $1.0$ second) to check PowerPoint's state.
+The server communicates over two ZeroMQ sockets on `localhost`, using a continuous polling interval (default: 1.0 second) to check PowerPoint's state.
 
-### Server $\to$ Client (PUB Socket on `tcp://*:5557`)
+### Server → Client (PUB Socket on `tcp://*:5557`)
 
 The server broadcasts multipart messages to all connected clients.
 
-| Message | Trigger | Data Format | Description |
-| :--- | :--- | :--- |:-------------------------------------------------------------------------------------------------------------------------|
+| Message           | Trigger                                       | Data Format                                                 | Description                                                                                                             |
+|:------------------|:----------------------------------------------|:------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------|
 | `CurrentViewRefs` | **Slide Change** or `GetCurrentViews` request | `[b"CurrentViewRefs", <slide_idx_json>, <meta1_json>, ...]` | Contains the JSON metadata for all spatial keyframes (3D views) linked to the new slide, enabling view synchronization. |
-| `AnimationStep` | **Animation Click** on the current slide | `[b"AnimationStep", <anim_step_json>]` | Lightweight message indicating an animation or click step change. |
-| `CurrentMode` | **Mode Change** (Edit $\leftrightarrow$ Presenter) | `[b"CurrentMode", <mode_json>]` | Notifies the client to switch between Authoring and Viewing modes. |
-| `AllViews` | `GetAllViews` Request | `[b"AllViews", <meta1_json>, <img1_bytes>, ...]` | Sends all metadata and full image data from the entire presentation (used for initial authoring load). |
+| `AnimationStep`   | **Animation Click** on the current slide      | `[b"AnimationStep", <anim_step_json>]`                      | Lightweight message indicating an animation or click step change.                                                       |
+| `CurrentMode`     | **Mode Change** (Edit ↔ Presenter)            | `[b"CurrentMode", <mode_json>]`                             | Notifies the client to switch between Authoring and Viewing modes.                                                      |
+| `AllViews`        | `GetAllViews` Request                         | `[b"AllViews", <meta1_json>, <img1_bytes>, ...]`            | Sends all metadata and full image data from the entire presentation (used for initial authoring load).                  |
 
-### Client $\to$ Server (PULL Socket on `tcp://*:5558`)
+### Client → Server (PULL Socket on `tcp://*:5558`)
 
 The XR client sends commands to the server, which processes them sequentially in a queue.
 
-| Command | Format | Action Taken by Server |
-| :--- | :--- |:-------------------------------------------------------------------------------------------------------------------------------------------------|
-| `GetAllViews` | `[b"GetAllViews"]` | Requests that the server broadcast all views using the `AllViews` message. |
-| `CreateView` | `[b"CreateView", <meta_json>, <img_bytes>]` | Executes the "snapshot" metaphor: Inserts the thumbnail image off-screen and embeds the spatial keyframe metadata into its Alternative Text. |
-| `GetCurrentViews` | `[b"GetCurrentViews"]` | Requests a broadcast of the `CurrentViewRefs` message for the active slide. |
+| Command           | Format                                      | Action Taken by Server                                                                                                                       |
+|:------------------|:--------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------|
+| `GetAllViews`     | `[b"GetAllViews"]`                          | Requests that the server broadcast all views using the `AllViews` message.                                                                   |
+| `CreateView`      | `[b"CreateView", <meta_json>, <img_bytes>]` | Executes the "snapshot" metaphor: Inserts the thumbnail image off-screen and embeds the spatial keyframe metadata into its Alternative Text. |
+| `GetCurrentViews` | `[b"GetCurrentViews"]`                      | Requests a broadcast of the `CurrentViewRefs` message for the active slide.                                                                  |
